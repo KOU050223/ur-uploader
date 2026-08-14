@@ -19,7 +19,7 @@ import (
 	"regexp"
 	"time"
 
-	"github.com/kou050223/ur-uploader/internal/auth"
+	"github.com/KOU050223/ur-uploader/internal/auth"
 )
 
 // BaseURL は unityroom のベースURL。

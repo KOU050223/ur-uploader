@@ -35,7 +35,7 @@ Unity は**ビルドまで対応**。アップロードは仕様調査が済ん�
 ### go install
 
 ```bash
-go install github.com/kou050223/ur-uploader@latest
+go install github.com/KOU050223/ur-uploader@latest
 ```
 
 ## 使い方

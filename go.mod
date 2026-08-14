@@ -1,4 +1,4 @@
-module github.com/kou050223/ur-uploader
+module github.com/KOU050223/ur-uploader
 
 go 1.26.2
 

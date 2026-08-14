@@ -7,9 +7,9 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/kou050223/ur-uploader/internal/auth"
-	"github.com/kou050223/ur-uploader/internal/engine"
-	"github.com/kou050223/ur-uploader/internal/unityroom"
+	"github.com/KOU050223/ur-uploader/internal/auth"
+	"github.com/KOU050223/ur-uploader/internal/engine"
+	"github.com/KOU050223/ur-uploader/internal/unityroom"
 	"github.com/spf13/cobra"
 )
 

@@ -10,8 +10,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/kou050223/ur-uploader/internal/auth"
-	"github.com/kou050223/ur-uploader/internal/browser"
+	"github.com/KOU050223/ur-uploader/internal/auth"
+	"github.com/KOU050223/ur-uploader/internal/browser"
 	"github.com/spf13/cobra"
 )
 
