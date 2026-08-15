@@ -9,7 +9,27 @@ permissions:
   contents: write
 
 jobs:
+  # ビルド前に検証する。1つでも壊れていれば公開しない。
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: stable
+      - run: go vet ./...
+      - run: go test ./...
+      - name: gofmt
+        run: |
+          unformatted=$(gofmt -l .)
+          if [ -n "$unformatted" ]; then
+            echo "gofmt が必要なファイル:"
+            echo "$unformatted"
+            exit 1
+          fi
+
   build:
+    needs: verify
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -38,18 +58,23 @@ jobs:
           CGO_ENABLED: "0"
         run: |
           name="ur-uploader"
-          [ "$GOOS" = "windows" ] && name="ur-uploader.exe"
+          if [ "$GOOS" = "windows" ]; then
+            name="ur-uploader.exe"
+          fi
           mkdir -p dist
           go build -trimpath \
             -ldflags "-s -w -X main.version=${GITHUB_REF_NAME}" \
             -o "dist/$name" .
+          cp README.md LICENSE dist/
           cd dist
           if [ "$GOOS" = "windows" ]; then
-            zip "ur-uploader_${GITHUB_REF_NAME}_${GOOS}_${GOARCH}.zip" "$name"
+            zip "ur-uploader_${GITHUB_REF_NAME}_${GOOS}_${GOARCH}.zip" \
+              "$name" README.md LICENSE
           else
-            tar czf "ur-uploader_${GITHUB_REF_NAME}_${GOOS}_${GOARCH}.tar.gz" "$name"
+            tar czf "ur-uploader_${GITHUB_REF_NAME}_${GOOS}_${GOARCH}.tar.gz" \
+              "$name" README.md LICENSE
           fi
-          rm -f "$name"
+          rm -f "$name" README.md LICENSE
 
       - uses: actions/upload-artifact@v4
         with:
@@ -60,6 +85,9 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     steps:
+      # リリース本文のテンプレートを取得するため checkout する
+      - uses: actions/checkout@v4
+
       - uses: actions/download-artifact@v4
         with:
           path: dist
@@ -68,4 +96,6 @@ jobs:
       - uses: softprops/action-gh-release@v2
         with:
           files: dist/*
+          # テンプレートを本文にし、その後ろに変更履歴が自動追記される
+          body_path: .github/RELEASE_TEMPLATE.md
           generate_release_notes: true
