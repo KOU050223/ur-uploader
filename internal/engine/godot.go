@@ -53,30 +53,34 @@ func (g *Godot) Build(ctx context.Context, dir string, opts BuildOptions) (*Arti
 		return nil, err
 	}
 
-	preset := opts.Preset
-	if preset == "" {
-		preset = "Web"
+	// 出力先とプリセットは export_presets.cfg の設定を尊重する。
+	// unityroom へのアップロードは署名付きURLへの PUT で、ローカルの
+	// ファイル名は送られないため、pck の名前は何でもよい。
+	preset, pck, err := ResolveGodotPck(dir, opts.Preset, opts.OutputDir)
+	if err != nil {
+		return nil, err
 	}
-	outDir := opts.OutputDir
-	if outDir == "" {
-		outDir = "dist"
-	}
-	outDir = abs(dir, outDir)
 
-	if err := os.MkdirAll(outDir, 0o755); err != nil {
+	// Godot はエクスポート先のディレクトリを自分では作らない。
+	if err := os.MkdirAll(filepath.Dir(pck), 0o755); err != nil {
 		return nil, fmt.Errorf("出力先を作成できません: %w", err)
 	}
 
-	// unityroom は Build.pck という名前を要求するため、
-	// エクスポート先を Build.html にして Build.pck を生成させる。
-	// （エクスポート先の basename がそのまま pck の名前になる）
-	outFile := filepath.Join(outDir, "Build.html")
+	// 前回の成果物が残っていると、エクスポートが途中で失敗しても
+	// 古い pck をアップロードしてしまうため先に消す。
+	if err := os.Remove(pck); err != nil && !os.IsNotExist(err) {
+		return nil, fmt.Errorf("古いビルド成果物を削除できません: %w", err)
+	}
 
 	args := []string{
 		"--headless",
 		"--path", dir,
-		"--export-release", preset,
-		outFile,
+		"--export-release", preset.Name,
+	}
+	// パスを省略すると export_presets.cfg の export_path が使われる。
+	// --output が指定されたときだけ明示的に上書きする。
+	if opts.OutputDir != "" {
+		args = append(args, outFileFor(pck, preset.ExportPath))
 	}
 
 	cmd := exec.CommandContext(ctx, bin, args...)
@@ -97,12 +101,12 @@ func (g *Godot) Build(ctx context.Context, dir string, opts BuildOptions) (*Arti
 		return nil, fmt.Errorf("Godot のビルドに失敗しました: %w", err)
 	}
 
-	pck := filepath.Join(outDir, "Build.pck")
 	if !exists(pck) {
-		// プリセット名やエクスポート設定が想定と違うと pck が出ないことがある。
+		// プリセットが Web 向けでないと pck が出ないことがある。
 		return nil, fmt.Errorf(
 			"ビルド成果物が見つかりません (%s)。\n"+
-				"エクスポートプリセット %q が Web 向けに設定されているか確認してください", pck, preset)
+				"エクスポートプリセット %q (platform=%s) が Web 向けに設定されているか確認してください",
+			pck, preset.Name, preset.Platform)
 	}
 
 	return &Artifact{Files: map[string]string{"pck": pck}}, nil

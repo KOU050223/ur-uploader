@@ -123,8 +123,8 @@ https://unityroom.com/games/my-game
     --engine <name>     エンジンを明示指定 (godot|unity)
     --no-build          ビルドせず既存の成果物を使う
     --pck <file>        アップロードするファイルを直接指定
--o, --output <dir>      ビルド出力先（既定: dist）
-    --preset <name>     Godot のエクスポートプリセット名（既定: Web）
+-o, --output <dir>      ビルド出力先（既定: export_presets.cfg の設定に従う）
+    --preset <name>     Godot のエクスポートプリセット名（既定: Web 向けを自動選択）
 -v, --verbose           エンジンの出力を表示
 ```
 
@@ -136,6 +136,12 @@ https://unityroom.com/games/my-game
 Godot エディタの「プロジェクト → エクスポート」から追加してください。
 
 `export_presets.cfg` がコミットされていれば CI でも動きます。
+
+プリセットと出力先はエディタで設定した内容をそのまま使います。
+
+- プリセットは Web 向けのものを自動で選びます。複数ある場合は `--preset` で指定してください。
+- 出力先はプリセットの「エクスポートパス」に従います。
+  `--output` を指定した場合はディレクトリだけを差し替え、ファイル名は設定のままです。
 
 > [!NOTE]
 > Godot の **.NET版は Web エクスポートに非対応**です（unityroom 公式ヘルプに記載）。

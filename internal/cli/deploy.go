@@ -31,8 +31,8 @@ func (f *buildFlags) register(cmd *cobra.Command) {
 	fl.StringVar(&f.engineName, "engine", "", "エンジンを明示指定 (godot|unity)")
 	fl.StringVar(&f.godotPath, "godot-path", "", "Godot 実行ファイルのパス")
 	fl.StringVar(&f.unityPath, "unity-path", "", "Unity 実行ファイルのパス")
-	fl.StringVarP(&f.outputDir, "output", "o", "", "ビルド出力先")
-	fl.StringVar(&f.preset, "preset", "", "Godot のエクスポートプリセット名 (既定: Web)")
+	fl.StringVarP(&f.outputDir, "output", "o", "", "ビルド出力先 (既定: export_presets.cfg の設定に従う)")
+	fl.StringVar(&f.preset, "preset", "", "Godot のエクスポートプリセット名 (既定: Web 向けのプリセットを自動選択)")
 	fl.StringVar(&f.buildMethod, "build-method", "", "Unity の -executeMethod に渡す値")
 	fl.BoolVarP(&f.verbose, "verbose", "v", false, "エンジンの出力を表示する")
 }
@@ -123,11 +123,11 @@ func runDeploy(ctx context.Context, permalink string, f *buildFlags, noBuild boo
 			return fmt.Errorf(
 				"--no-build は現在 Godot のみ対応しています。--pck で指定してください")
 		}
-		out := opts.OutputDir
-		if out == "" {
-			out = "dist"
+		// ビルド時と同じ規則（export_presets.cfg 準拠）で成果物を探す。
+		_, pck, err := engine.ResolveGodotPck(dir, opts.Preset, opts.OutputDir)
+		if err != nil {
+			return err
 		}
-		pck := filepath.Join(dir, out, "Build.pck")
 		if _, err := os.Stat(pck); err != nil {
 			return fmt.Errorf(
 				"ビルド成果物が見つかりません: %s\n--no-build を外すか --pck で指定してください", pck)
