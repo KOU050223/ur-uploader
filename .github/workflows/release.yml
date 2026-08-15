@@ -99,3 +99,5 @@ jobs:
           # テンプレートを本文にし、その後ろに変更履歴が自動追記される
           body_path: .github/RELEASE_TEMPLATE.md
           generate_release_notes: true
+          # v1.0.0-rc1 のようなタグは prerelease として公開する
+          prerelease: ${{ contains(github.ref_name, '-') }}

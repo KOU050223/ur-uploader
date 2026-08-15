@@ -1,0 +1,15 @@
+# yaml-language-server: $schema=https://taskfile.dev/schema.json
+
+version: '3'
+
+tasks:
+  default:
+    desc: タスク一覧
+    cmds:
+      - task --list
+  ci:
+    desc: CI前のチェック
+    cmds:
+      - gofmt -w .
+      - go vet ./...
+      - go test ./...
