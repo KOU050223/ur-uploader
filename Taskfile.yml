@@ -13,3 +13,50 @@ tasks:
       - gofmt -w .
       - go vet ./...
       - go test ./...
+  install:
+    desc: インストール
+    cmds:
+      - go install .
+  uninstall:
+    desc: アンインストール
+    cmds:
+      - rm ~/go/bin/ur-uploader
+
+  release:check:
+    desc: 'リリース前の検証（CI と .goreleaser.yaml の設定チェック）'
+    cmds:
+      - task: ci
+      - goreleaser check
+
+  release:snapshot:
+    desc: 'タグを打たずにローカルでビルドを試す（dist/ に出力）'
+    cmds:
+      - goreleaser release --snapshot --clean --skip=publish
+
+  release:
+    desc: 'リリースする（例: task release TAG=v0.2.0）'
+    requires:
+      vars: [TAG]
+    preconditions:
+      - sh: '[ "$(git rev-parse --abbrev-ref HEAD)" = "main" ]'
+        msg: 'main ブランチで実行してください'
+      - sh: '[ -z "$(git status --porcelain)" ]'
+        msg: '未コミットの変更があります'
+      - sh: 'echo "{{.TAG}}" | grep -Eq "^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$"'
+        msg: 'TAG は v0.2.0 / v1.0.0-rc1 の形式で指定してください'
+      - sh: '[ -z "$(git tag -l "{{.TAG}}")" ]'
+        msg: 'タグ {{.TAG}} は既に存在します'
+    cmds:
+      - git pull --ff-only
+      - task: release:check
+      - git tag -a {{.TAG}} -m "{{.TAG}}"
+      - git push origin {{.TAG}}
+      - 'echo "タグを push しました。GitHub Actions の進行状況: https://github.com/KOU050223/ur-uploader/actions"'
+
+  release:undo:
+    desc: 'push 済みタグを取り消す（例: task release:undo TAG=v0.2.0）'
+    requires:
+      vars: [TAG]
+    cmds:
+      - git push --delete origin {{.TAG}}
+      - git tag -d {{.TAG}}
