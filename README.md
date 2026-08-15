@@ -33,6 +33,12 @@ https://unityroom.com/games/my-game
 
 ## インストール
 
+### Homebrew（macOS / Linux）
+
+```bash
+brew install --cask KOU050223/tap/ur-uploader
+```
+
 ### バイナリをダウンロード
 
 [Releases](../../releases) から各OS向けのバイナリを取得してください。
