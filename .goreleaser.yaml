@@ -1,0 +1,70 @@
+# yaml-language-server: $schema=https://goreleaser.com/static/schema.json
+version: 2
+
+project_name: ur-uploader
+
+before:
+  hooks:
+    - go mod tidy
+
+builds:
+  - main: .
+    binary: ur-uploader
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - darwin
+      - linux
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    ignore:
+      # Windows の arm64 は需要が薄いので作らない
+      - goos: windows
+        goarch: arm64
+    flags:
+      - -trimpath
+    ldflags:
+      - -s -w -X main.version={{ .Tag }}
+
+archives:
+  # 既存リリース（v0.1.0）と同じ命名を保つため Version ではなく Tag を使う
+  - name_template: "{{ .ProjectName }}_{{ .Tag }}_{{ .Os }}_{{ .Arch }}"
+    formats: [tar.gz]
+    format_overrides:
+      - goos: windows
+        formats: [zip]
+    files:
+      - README.md
+      - LICENSE
+
+checksum:
+  name_template: "checksums.txt"
+
+release:
+  # テンプレートを本文にし、その後ろに変更履歴が自動追記される
+  header: '{{ .Env.RELEASE_HEADER }}'
+  # v1.0.0-rc1 のようなタグは prerelease として公開する
+  prerelease: auto
+
+homebrew_casks:
+  - name: ur-uploader
+    homepage: "https://github.com/KOU050223/ur-uploader"
+    description: "unityroom へのゲームアップロードを自動化する非公式CLI"
+    license: "MIT"
+    repository:
+      owner: KOU050223
+      name: homebrew-tap
+      branch: main
+      token: "{{ .Env.HOMEBREW_TAP_TOKEN }}"
+    commit_author:
+      name: goreleaserbot
+      email: bot@goreleaser.com
+    hooks:
+      post:
+        install: |
+          if system_command("/usr/bin/xattr", args: ["-h"]).exit_status == 0
+            # 未署名バイナリが Gatekeeper に隔離されるのを解除する
+            system_command "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "#{staged_path}/ur-uploader"]
+          end

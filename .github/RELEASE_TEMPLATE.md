@@ -20,7 +20,13 @@ https://unityroom.com/games/my-game
 
 ## インストール
 
-下の Assets からお使いの環境のファイルをダウンロードし、
+macOS / Linux は Homebrew が最も簡単です。
+
+```bash
+brew install --cask KOU050223/tap/ur-uploader
+```
+
+または、下の Assets からお使いの環境のファイルをダウンロードし、
 展開して PATH の通った場所に置いてください。
 
 | OS | ファイル |
