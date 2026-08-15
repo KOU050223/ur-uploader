@@ -59,6 +59,35 @@ func TestFetchProps_対象が無ければ設定を促す(t *testing.T) {
 	}
 }
 
+func TestFetchProps_エンジン未選択を仕様変更と誤認しない(t *testing.T) {
+	// エンジン未選択のとき、アップローダは描画されず data-props が1つも無い。
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte(`<body class="pg_games-settings-webgl_uploads pg_games-settings-webgl_uploads_show">` +
+			`<div class="el_alert el_alert__warning">先に Webビルド設定 にて選択してください。</div></body>`))
+	}))
+	defer srv.Close()
+
+	c := New(&auth.Credentials{Cookies: []auth.Cookie{{Name: "remember_token", Value: "x"}}})
+	_, _, err := c.fetchPropsFrom(context.Background(), srv.URL)
+	if err != errEngineNotSelected {
+		t.Errorf("errEngineNotSelected を期待したが: %v", err)
+	}
+}
+
+func TestFetchProps_アップロード画面でなければ仕様変更を疑う(t *testing.T) {
+	// 目印が無い＝そもそも想定した画面ではないので、従来通りの案内にする。
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte(`<body class="pg_top"><div>まったく別の画面</div></body>`))
+	}))
+	defer srv.Close()
+
+	c := New(&auth.Credentials{Cookies: []auth.Cookie{{Name: "remember_token", Value: "x"}}})
+	_, _, err := c.fetchPropsFrom(context.Background(), srv.URL)
+	if err == nil || !strings.Contains(err.Error(), "仕様変更") {
+		t.Errorf("仕様変更を疑うエラーを期待したが: %v", err)
+	}
+}
+
 func TestFetchProps_未ログインを検出する(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusUnauthorized)

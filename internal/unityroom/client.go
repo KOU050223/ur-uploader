@@ -65,6 +65,16 @@ type uploadProps struct {
 
 var dataPropsRe = regexp.MustCompile(`data-props="([^"]*)"`)
 
+// uploadPageMarker はアップロード画面が正しく描画されたことを示す body クラス。
+//
+// エンジン未選択の場合、アップローダのコンポーネント自体が描画されず
+// data-props が1つも現れない。仕様変更と区別するために構造側の目印を使う。
+// 文言は変わりやすいが、Rails の body クラスは比較的安定している。
+const uploadPageMarker = "pg_games-settings-webgl_uploads"
+
+// errEngineNotSelected はエンジン未選択を表す内部エラー。
+var errEngineNotSelected = fmt.Errorf("エンジンが設定されていません")
+
 // uploadPageURL はアップロード画面のURLを組み立てる。
 func uploadPageURL(permalink string) string {
 	return fmt.Sprintf("%s/games/%s/settings/webgl_upload", BaseURL, permalink)
@@ -113,6 +123,11 @@ func (c *Client) fetchPropsFrom(ctx context.Context, pageURL string) (*uploadPro
 	// アップローダのものを内容で見分ける必要がある。
 	matches := dataPropsRe.FindAllSubmatch(body, -1)
 	if len(matches) == 0 {
+		// アップロード画面自体は正しく返っているのに data-props が無い場合、
+		// エンジン未選択でアップローダが描画されていない状態が最も多い。
+		if strings.Contains(string(body), uploadPageMarker) {
+			return nil, nil, errEngineNotSelected
+		}
 		return nil, nil, fmt.Errorf(
 			"アップロード情報が見つかりません。unityroom側の仕様変更の可能性があります")
 	}
@@ -150,6 +165,13 @@ func (c *Client) Upload(ctx context.Context, permalink string, files map[string]
 	if err := c.uploadTo(ctx, uploadPageURL(permalink), files, onProgress); err != nil {
 		if err == errGameNotFound {
 			return fmt.Errorf("ゲームが見つかりません: %s", permalink)
+		}
+		if err == errEngineNotSelected {
+			return fmt.Errorf(
+				"unityroom側でエンジンのバージョンが選択されていません。\n"+
+					"  %s/games/%s/settings/webgl_info を開き、\n"+
+					"  Godot / Unity のバージョンを選択して保存してから再実行してください",
+				BaseURL, permalink)
 		}
 		return err
 	}
