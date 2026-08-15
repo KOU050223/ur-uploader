@@ -177,6 +177,18 @@ unityroom が要求する **`Build.pck`** とは名前が違う。
 - 画面は**エンジン別に出し分けられている**（「Webビルドアップロード (Godot)」）。
   別途「Webビルド設定」でエンジンを指定していると推測される
 
+**GDExtension（別画面・部分的に調査済み）**
+
+`/games/<permalink>/settings/gdextensions` に専用画面があり、
+`GdextensionsUploader-*.js` が制御している。WebGL とは別系統。
+
+- 対象は **`.so` / `.wasm`**、複数ファイル可
+- パスに `^[a-zA-Z0-9()_./-]+$` のバリデーションがある
+- 属性名が `data-props` ではなく **`data`**
+- `purge_cache` があり、上書き時は実行が必要とされている
+
+詳細は [#2](https://github.com/KOU050223/ur-uploader/issues/2)。
+
 **Unity（未検証）**
 
 `multiple: true` かつ `targets` が配列であることから、

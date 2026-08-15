@@ -46,8 +46,9 @@ go install github.com/KOU050223/ur-uploader@latest
 
 ## 既知の制限
 
-- **Godot のみ対応**です。Unity はビルドまで動きますが、
-  アップロードは仕様調査が済んでいないため未対応です
+- **Godot の Web ビルドのみ対応**です
+  - Unity はビルドまで動きますが、アップロードは未対応です（#1）
+  - GDExtension のアップロードにも未対応です（#2）
 - Godot の **.NET版は Web エクスポート非対応**のため使えません
   （unityroom 公式ヘルプに記載）
 - Google アカウントでのログインが弾かれる場合は、

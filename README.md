@@ -23,8 +23,13 @@ https://unityroom.com/games/my-game
 - 単一バイナリで動作（ランタイム不要）
 - エンジンの自動判定
 
-Unity は**ビルドまで対応**。アップロードは仕様調査が済んでいないため未対応です
-（[INVESTIGATION.md](INVESTIGATION.md) 参照）。
+現在の対応状況:
+
+| | 状況 |
+|---|---|
+| Godot の Web ビルド | ✅ 対応 |
+| Unity の WebGL ビルド | ⚠️ ビルドのみ（[#1](../../issues/1)） |
+| GDExtension | ❌ 未対応（[#2](../../issues/2)） |
 
 ## インストール
 
