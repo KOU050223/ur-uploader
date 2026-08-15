@@ -48,8 +48,11 @@ func Launch(ctx context.Context, b *Browser, startURL string) (*Session, error) 
 		fmt.Sprintf("--remote-debugging-port=%d", port),
 		"--no-first-run",
 		"--no-default-browser-check",
-		// 自動制御であることを隠す。これがないと Google のログインが
-		// 「安全でないブラウザ」として拒否される。
+		// navigator.webdriver を無効化する。
+		// これがないと Google のログイン画面が
+		// 「このブラウザまたはアプリは安全でない可能性があります」として拒否し、
+		// 利用者が自分のアカウントにログインできない。
+		// ログイン操作自体は利用者本人が手動で行う（自動入力はしない）。
 		"--disable-blink-features=AutomationControlled",
 		startURL,
 	)

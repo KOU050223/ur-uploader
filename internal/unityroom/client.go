@@ -17,6 +17,7 @@ import (
 	"net/http"
 	"os"
 	"regexp"
+	"strings"
 	"time"
 
 	"github.com/KOU050223/ur-uploader/internal/auth"
@@ -71,8 +72,11 @@ func uploadPageURL(permalink string) string {
 
 // fetchProps は①を行い、署名付きURLとCSRFトークンを取得する。
 // 併せて、後続で使う Jar（更新されたセッションを含む）を返す。
-func (c *Client) fetchProps(ctx context.Context, permalink string) (*uploadProps, *auth.Jar, error) {
-	pageURL := uploadPageURL(permalink)
+// errGameNotFound は 404 を表す内部エラー。
+var errGameNotFound = fmt.Errorf("game not found")
+
+// fetchPropsFrom は指定URLから props を取得する（テストのために分離）。
+func (c *Client) fetchPropsFrom(ctx context.Context, pageURL string) (*uploadProps, *auth.Jar, error) {
 	jar := auth.NewJar(c.creds)
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, pageURL, nil)
@@ -95,7 +99,7 @@ func (c *Client) fetchProps(ctx context.Context, permalink string) (*uploadProps
 	case http.StatusUnauthorized, http.StatusFound:
 		return nil, nil, auth.ErrNotLoggedIn
 	case http.StatusNotFound:
-		return nil, nil, fmt.Errorf("ゲームが見つかりません: %s", permalink)
+		return nil, nil, errGameNotFound
 	default:
 		return nil, nil, fmt.Errorf("アップロード画面の取得に失敗しました (status=%d)", resp.StatusCode)
 	}
@@ -105,21 +109,36 @@ func (c *Client) fetchProps(ctx context.Context, permalink string) (*uploadProps
 		return nil, nil, fmt.Errorf("応答を読み取れません: %w", err)
 	}
 
-	m := dataPropsRe.FindSubmatch(body)
-	if m == nil {
+	// data-props は他の React コンポーネントにも付いているため、
+	// アップローダのものを内容で見分ける必要がある。
+	matches := dataPropsRe.FindAllSubmatch(body, -1)
+	if len(matches) == 0 {
 		return nil, nil, fmt.Errorf(
 			"アップロード情報が見つかりません。unityroom側の仕様変更の可能性があります")
 	}
 
-	var props uploadProps
-	if err := json.Unmarshal([]byte(html.UnescapeString(string(m[1]))), &props); err != nil {
-		return nil, nil, fmt.Errorf("アップロード情報を解析できません: %w", err)
+	found := false // アップローダらしき data-props が1つでもあったか
+	for _, m := range matches {
+		var props uploadProps
+		if err := json.Unmarshal([]byte(html.UnescapeString(string(m[1]))), &props); err != nil {
+			continue // 別コンポーネントの props なので読み飛ばす
+		}
+		if props.CsrfToken == "" && props.UploadPath == "" {
+			continue
+		}
+		found = true
+		if len(props.Targets) > 0 && props.CsrfToken != "" {
+			return &props, jar, nil
+		}
 	}
-	if len(props.Targets) == 0 {
+
+	if found {
+		// アップロード画面ではあるが、対象が無い状態。
 		return nil, nil, fmt.Errorf("アップロード対象がありません。" +
 			"unityroom側でエンジン（Godot/Unity）が設定されているか確認してください")
 	}
-	return &props, jar, nil
+	return nil, nil, fmt.Errorf(
+		"アップロード情報が見つかりません。unityroom側の仕様変更の可能性があります")
 }
 
 // ProgressFunc はアップロード進捗の通知を受ける。
@@ -128,24 +147,43 @@ type ProgressFunc func(key string, sent, total int64)
 // Upload はビルド成果物を unityroom にアップロードする。
 // files は Target.Key に対応するローカルファイルのパス。
 func (c *Client) Upload(ctx context.Context, permalink string, files map[string]string, onProgress ProgressFunc) error {
-	props, jar, err := c.fetchProps(ctx, permalink)
+	if err := c.uploadTo(ctx, uploadPageURL(permalink), files, onProgress); err != nil {
+		if err == errGameNotFound {
+			return fmt.Errorf("ゲームが見つかりません: %s", permalink)
+		}
+		return err
+	}
+	return nil
+}
+
+// uploadTo は指定URLに対してアップロードを行う（テストのために分離）。
+func (c *Client) uploadTo(ctx context.Context, pageURL string, files map[string]string, onProgress ProgressFunc) error {
+	props, jar, err := c.fetchPropsFrom(ctx, pageURL)
 	if err != nil {
 		return err
 	}
 
+	// 途中まで送って中断する事態を避けるため、
+	// 必要なファイルが揃っているかを先に確認する。
+	var missing []string
+	for _, t := range props.Targets {
+		if _, ok := files[t.Key]; !ok {
+			missing = append(missing, t.Key+t.FileExtension)
+		}
+	}
+	if len(missing) > 0 {
+		return fmt.Errorf("アップロードするファイルがありません: %s", strings.Join(missing, ", "))
+	}
+
 	// ② 各ターゲットをオブジェクトストレージへ直接 PUT する。
 	for _, t := range props.Targets {
-		path, ok := files[t.Key]
-		if !ok {
-			return fmt.Errorf("アップロードするファイルがありません: %s%s", t.Key, t.FileExtension)
-		}
-		if err := c.putFile(ctx, t, path, onProgress); err != nil {
+		if err := c.putFile(ctx, t, files[t.Key], onProgress); err != nil {
 			return err
 		}
 	}
 
 	// ③ 完了を通知する。
-	return c.notify(ctx, permalink, props.CsrfToken, jar)
+	return c.notify(ctx, pageURL, props.CsrfToken, jar)
 }
 
 // putFile は②を行う。
@@ -196,9 +234,7 @@ func (c *Client) putFile(ctx context.Context, t Target, path string, onProgress 
 }
 
 // notify は③を行う。成功時は 302 が返る。
-func (c *Client) notify(ctx context.Context, permalink, csrfToken string, jar *auth.Jar) error {
-	pageURL := uploadPageURL(permalink)
-
+func (c *Client) notify(ctx context.Context, pageURL, csrfToken string, jar *auth.Jar) error {
 	req, err := http.NewRequestWithContext(ctx, http.MethodPatch, pageURL, nil)
 	if err != nil {
 		return err

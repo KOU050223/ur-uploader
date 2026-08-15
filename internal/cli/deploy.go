@@ -103,8 +103,12 @@ func runDeploy(ctx context.Context, permalink string, f *buildFlags, noBuild boo
 
 	switch {
 	case pckPath != "":
-		if _, err := os.Stat(pckPath); err != nil {
+		st, err := os.Stat(pckPath)
+		if err != nil {
 			return fmt.Errorf("指定されたファイルが見つかりません: %s", pckPath)
+		}
+		if !st.Mode().IsRegular() {
+			return fmt.Errorf("ファイルではありません: %s", pckPath)
 		}
 		files["pck"] = pckPath
 		fmt.Printf("✓ アップロードするファイル: %s\n", pckPath)
@@ -113,6 +117,11 @@ func runDeploy(ctx context.Context, permalink string, f *buildFlags, noBuild boo
 		eng, dir, opts, err := f.resolve()
 		if err != nil {
 			return err
+		}
+		// --no-build は Godot の成果物を前提にしている。
+		if eng.Name() != "godot" {
+			return fmt.Errorf(
+				"--no-build は現在 Godot のみ対応しています。--pck で指定してください")
 		}
 		out := opts.OutputDir
 		if out == "" {

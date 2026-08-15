@@ -6,7 +6,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strings"
 )
 
 // Unity は Unity のビルドを扱う。
@@ -117,21 +116,4 @@ func (u *Unity) Build(ctx context.Context, dir string, opts BuildOptions) (*Arti
 		"ビルドは成功しました (%s)。\n"+
 			"ただし unityroom への Unity ビルドのアップロードは未対応です。\n"+
 			"現在は Godot のみ対応しています", outDir)
-}
-
-// unityArtifactHint は将来の実装用に、生成物の一覧を返す。
-func unityArtifactHint(outDir string) []string {
-	var found []string
-	filepath.Walk(outDir, func(path string, info os.FileInfo, err error) error {
-		if err != nil || info.IsDir() {
-			return nil
-		}
-		switch {
-		case strings.HasSuffix(path, ".wasm"), strings.HasSuffix(path, ".data"),
-			strings.HasSuffix(path, ".js"), strings.HasSuffix(path, ".json"):
-			found = append(found, path)
-		}
-		return nil
-	})
-	return found
 }

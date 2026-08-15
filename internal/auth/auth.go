@@ -67,6 +67,10 @@ func Save(c *Credentials) error {
 	if err := os.WriteFile(path, data, 0o600); err != nil {
 		return fmt.Errorf("認証情報を保存できません: %w", err)
 	}
+	// WriteFile は既存ファイルのモードを変えないため、明示的に絞る。
+	if err := os.Chmod(path, 0o600); err != nil {
+		return fmt.Errorf("認証情報の権限を設定できません: %w", err)
+	}
 	return nil
 }
 

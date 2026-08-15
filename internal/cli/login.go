@@ -36,14 +36,9 @@ func newLoginCommand() *cobra.Command {
 			if manual {
 				return runManualLogin()
 			}
-			err := runBrowserLogin(cmd.Context(), browserPath, timeout)
-			if err != nil {
+			if err := runBrowserLogin(cmd.Context(), browserPath, timeout); err != nil {
 				// ブラウザが見つからない場合などは手動方式を案内する。
-				fmt.Fprintln(os.Stderr)
-				fmt.Fprintln(os.Stderr, "エラー:", err)
-				fmt.Fprintln(os.Stderr)
-				fmt.Fprintln(os.Stderr, "`ur-uploader login --manual` で手動入力に切り替えられます。")
-				os.Exit(1)
+				return fmt.Errorf("%w\n\n`ur-uploader login --manual` で手動入力に切り替えられます", err)
 			}
 			return nil
 		},

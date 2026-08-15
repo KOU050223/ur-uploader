@@ -25,6 +25,11 @@ func WaitForLogin(ctx context.Context, s *Session, timeout time.Duration, onWait
 	ticker := time.NewTicker(time.Second)
 	defer ticker.Stop()
 
+	// CDP が連続で失敗したらブラウザが閉じられたとみなす。
+	// Windows では Alive() が常に true を返すため、これが唯一の検知手段になる。
+	const maxConsecutiveErrors = 3
+	errCount := 0
+
 	start := time.Now()
 	for {
 		select {
@@ -42,9 +47,13 @@ func WaitForLogin(ctx context.Context, s *Session, timeout time.Duration, onWait
 
 		cookies, err := s.Cookies(ctx)
 		if err != nil {
-			// 一時的な失敗は無視して再試行する。
+			errCount++
+			if errCount >= maxConsecutiveErrors {
+				return nil, fmt.Errorf("ブラウザとの接続が切れました（閉じられた可能性があります）")
+			}
 			continue
 		}
+		errCount = 0
 
 		if found := pick(cookies); found != nil {
 			return found, nil
@@ -56,13 +65,23 @@ func WaitForLogin(ctx context.Context, s *Session, timeout time.Duration, onWait
 	}
 }
 
+// unityroomDomain は認証Cookieを受け入れるドメイン。
+const unityroomDomain = "unityroom.com"
+
+// isUnityroomDomain は unityroom.com とそのサブドメインかを判定する。
+// 部分一致だと別のドメインを誤って受け入れてしまうため、末尾で判定する。
+func isUnityroomDomain(domain string) bool {
+	d := strings.TrimPrefix(domain, ".")
+	return d == unityroomDomain || strings.HasSuffix(d, "."+unityroomDomain)
+}
+
 // pick は unityroom の必要な Cookie がそろっていれば返す。
 func pick(cookies []Cookie) []Cookie {
 	var out []Cookie
 	ok := false
 
 	for _, c := range cookies {
-		if !strings.Contains(c.Domain, "unityroom.com") {
+		if !isUnityroomDomain(c.Domain) {
 			continue
 		}
 		for _, want := range WantedCookies {
